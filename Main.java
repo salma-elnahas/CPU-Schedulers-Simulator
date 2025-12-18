@@ -245,6 +245,106 @@ class CPUsimulator {
 
     }
 
+    public void priorityScheduling(List<Process> processes, int agingInterval) {
+        int currentT = 0;
+        int completedP = 0;
+        int numProcesses = processes.size();
+
+        List<String> executionOrder = new ArrayList<>();
+
+        // track when each process last executed
+        Map<Process, Integer> lastExecutedTime = new HashMap<>();
+        for (Process p : processes) {
+            lastExecutedTime.put(p, 0);
+        }
+
+        // store original priorities
+        Map<Process, Integer> originalPriority = new HashMap<>();
+        for (Process p : processes) {
+            originalPriority.put(p, p.getPriority());
+        }
+
+        while (completedP < numProcesses) {
+            // find processes that have arrived and still have burst time
+            List<Process> readyQueue = new ArrayList<>();
+            for (Process p : processes) {
+                if (p.getArrivalTime() <= currentT && p.getRemainingBurstTime() > 0) {
+                    readyQueue.add(p);
+                }
+            }
+
+            // if no ready process, advance time
+            if (readyQueue.isEmpty()) {
+                currentT++;
+                continue;
+            }
+
+            // apply aging : increase priority of waiting processes
+            for (Process p : readyQueue) {
+                int waitingTime = currentT - lastExecutedTime.get(p);
+                // every agingInterval time units, improve priority by 1
+                int priorityBoost = waitingTime / agingInterval;
+                int adjustedPriority = Math.max(0, originalPriority.get(p) - priorityBoost);
+                p.priority = adjustedPriority;
+            }
+
+            // select process with lowest priority number
+            Process selected = readyQueue.get(0);
+            for (Process p : readyQueue) {
+                if (p.priority < selected.priority) {
+                    selected = p;
+                }
+            }
+
+            // add to execution order
+            if (executionOrder.isEmpty() || !executionOrder.get(executionOrder.size() - 1).equals(selected.getName())) {
+                executionOrder.add(selected.getName());
+            }
+
+            // execute for 1 time unit
+            selected.setRemainingBurstTime(selected.getRemainingBurstTime() - 1);
+            currentT++;
+            lastExecutedTime.put(selected, currentT);
+
+            // check if process completed
+            if (selected.getRemainingBurstTime() == 0) {
+                completedP++;
+                selected.setCompletionTime(currentT);
+                selected.setTurnaroundTime(selected.getCompletionTime() - selected.getArrivalTime());
+                selected.setWaitingTime(selected.getTurnaroundTime() - selected.getBurstTime());
+                System.out.println("Process " + selected.getName() + " completed at time " + currentT);
+            }
+
+            // restore original priority
+            selected.priority = originalPriority.get(selected);
+        }
+
+        // print results
+        System.out.println("Execution Order: " + executionOrder);
+        System.out.println("\nProcess\tArrival\tBurst\tCompletion\tTAT\tWT");
+        System.out.println("---------------------------------------------------");
+        double totalWaitingTime = 0;
+        double totalTurnaroundTime = 0;
+
+        for (Process proc : processes) {
+            proc.setTurnaroundTime(proc.getCompletionTime() - proc.getArrivalTime());
+            proc.setWaitingTime(proc.getTurnaroundTime() - proc.getBurstTime());
+            System.out.println(proc.getName() + "\t" +
+                    proc.getArrivalTime() + "\t" +
+                    proc.getBurstTime() + "\t" +
+                    proc.getCompletionTime() + "\t\t" +
+                    proc.getTurnaroundTime() + "\t" +
+                    proc.getWaitingTime());
+
+            totalWaitingTime += proc.getWaitingTime();
+            totalTurnaroundTime += proc.getTurnaroundTime();
+        }
+
+        System.out.println("---------------------------------------------------");
+        System.out.println("Average Waiting Time: " + (totalWaitingTime / numProcesses));
+        System.out.println("Average Turnaround Time: " + (totalTurnaroundTime / numProcesses));
+    }
+
     enum PickMode { FCFS, PRIORITY, SJF }
 
     public void AGScheduling(List<Process> processes) {
