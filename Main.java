@@ -59,10 +59,6 @@ class Process {
    
 }
 
-
-
-
-
 class CPUsimulator {
     // preemptive Shortest-Job First (SJF) Scheduling with context switching
     public void preemptiveSJF(List<Process> processes, int contextSwitch) {
@@ -249,243 +245,218 @@ class CPUsimulator {
 
     }
 
-}
+    enum PickMode { FCFS, PRIORITY, SJF }
 
-class AGScheduler {
+    public void AGScheduling(List<Process> processes) {
+
     Queue<Process> readyQueue = new LinkedList<>();
-    Process current;
-    List<Process> processes = new ArrayList<>();
-    int currentTime = 0;
-    int counterCompletedProcesses = 0;
-    boolean endTurn = false;
-
-    // for output
     List<String> executionOrder = new ArrayList<>();
 
-    enum PickMode { FCFS, PRIORITY, SJF }
     PickMode nextPick = PickMode.FCFS;
 
-    AGScheduler(List<Process> processes) {
-        this.processes = processes;
+    int currentTime = 0;
+    int completed = 0;
+
+    // reset process state (important if reused)
+    for (Process p : processes) {
+        p.addedToQueue = false;
+        p.setRemainingBurstTime(p.getBurstTime());
+        p.setRemainingQuantum(p.getQuantum());
     }
 
-    void addProcess() { // add process upon arrival
+    while (completed < processes.size()) {
+
+        // add arrived processes
         for (Process p : processes) {
             if (p.getArrivalTime() <= currentTime && !p.addedToQueue) {
                 readyQueue.add(p);
                 p.addedToQueue = true;
             }
         }
-    }
 
-    void recordExecution(Process p) {
-        if (executionOrder.isEmpty() || !executionOrder.get(executionOrder.size() - 1).equals(p.getName())) {
-            executionOrder.add(p.getName());
+        if (readyQueue.isEmpty()) {
+            currentTime++;
+            continue;
         }
-    }
 
-    // pick according to the mode, removing the chosen one from the queue
-    Process pickNextProcess() {
-        if (readyQueue.isEmpty()) return null;
+        // pick process
+        Process current = null;
 
         if (nextPick == PickMode.FCFS) {
-            return readyQueue.poll();
-        }
+            current = readyQueue.poll();
+        } else {
+            Process best = null;
 
-        Process best = null;
-
-        if (nextPick == PickMode.PRIORITY) {
-            int bestPriority = Integer.MAX_VALUE;
-            for (Process p : readyQueue) {
-                if (p.getPriority() < bestPriority) {
-                    bestPriority = p.getPriority();
-                    best = p;
+            if (nextPick == PickMode.PRIORITY) {
+                int bestPr = Integer.MAX_VALUE;
+                for (Process p : readyQueue) {
+                    if (p.getPriority() < bestPr) {
+                        bestPr = p.getPriority();
+                        best = p;
+                    }
                 }
-            }
-        } else if (nextPick == PickMode.SJF) {
-            int bestRem = Integer.MAX_VALUE;
-            for (Process p : readyQueue) {
-                if (p.getRemainingBurstTime() < bestRem) {
-                    bestRem = p.getRemainingBurstTime();
-                    best = p;
-                }
-            }
-        }
-
-        // remove chosen from queue
-        if (best != null) {
-            readyQueue.remove(best);
-        }
-
-        // after choosing once, go back to FCFS unless a new preemption sets it again
-        nextPick = PickMode.FCFS;
-        return best;
-    }
-
-    void startProcess() {
-        current.setRemainingQuantum(current.getQuantum());
-        recordExecution(current);
-    }
-
-    void caseiCheck() {
-        // i) used all quantum and still not finished, add to end, quantum += 2
-        if (current.getRemainingQuantum() == 0 && current.getRemainingBurstTime() > 0) {
-            current.setQuantum(current.getQuantum() + 2);
-            readyQueue.add(current);
-            endTurn = true;
-        }
-    }
-
-    void caseivCheck() {
-        // iv) completion time
-        if (current.getRemainingBurstTime() == 0) {
-            current.setCompletionTime(currentTime);
-            current.setQuantum(0); // also pushes 0 into quantumHistory
-            counterCompletedProcesses++;
-            endTurn = true;
-        }
-    }
-
-    public void AGScheduling() {
-        while (counterCompletedProcesses < processes.size()) {
-            addProcess();
-
-            if (readyQueue.isEmpty()) {
-                currentTime++;
-                continue;
-            }
-
-            current = pickNextProcess();
-            if (current == null) continue;
-
-            endTurn = false;
-            startProcess();
-
-            // phase 1 (FCFS) for ceil(25%Q)
-            int q1 = (int) ceil(0.25 * current.getQuantum());
-            int phaseOneCounter = 0;
-
-            while (current.getRemainingBurstTime() > 0 &&
-                   current.getRemainingQuantum() > 0 &&
-                   phaseOneCounter < q1) {
-
-                current.setRemainingBurstTime(current.getRemainingBurstTime() - 1);
-                current.setRemainingQuantum(current.getRemainingQuantum() - 1);
-                currentTime++;
-                phaseOneCounter++;
-                addProcess();
-            }
-
-            caseivCheck();
-            if (endTurn) continue;
-            caseiCheck();
-            if (endTurn) continue;
-
-            // phase 2: non-preemptive priority for next ceil(25%Q)
-            int q2 = (int) ceil(0.25 * current.getQuantum());
-            int phaseTwoCounter = 0;
-
-            // case ii check (priority preemption before running phase2)
-            Process bestPriority = null;
-            int bestPr = Integer.MAX_VALUE;
-            for (Process p : readyQueue) {
-                if (p.getPriority() < bestPr) {
-                    bestPr = p.getPriority();
-                    bestPriority = p;
-                }
-            }
-
-            if (bestPriority != null && bestPriority.getPriority() < current.getPriority()) {
-                int addQ = (int) ceil(current.getRemainingQuantum() / 2.0);
-                current.setQuantum(current.getQuantum() + addQ);
-                readyQueue.add(current);
-
-                nextPick = PickMode.PRIORITY;
-                endTurn = true;
-                continue;
-            }
-
-            while (current.getRemainingBurstTime() > 0 &&
-                   current.getRemainingQuantum() > 0 &&
-                   phaseTwoCounter < q2) {
-
-                current.setRemainingBurstTime(current.getRemainingBurstTime() - 1);
-                current.setRemainingQuantum(current.getRemainingQuantum() - 1);
-                currentTime++;
-                phaseTwoCounter++;
-                addProcess();
-            }
-
-            caseivCheck();
-            if (endTurn) continue;
-            caseiCheck();
-            if (endTurn) continue;
-
-            // phase 3: preemptive SJF for the remaining quantum
-            while (current.getRemainingBurstTime() > 0 && current.getRemainingQuantum() > 0) {
-                addProcess();
-
-                // case iii check (shorter remaining time exists)
-                Process bestSJF = null;
+            } else { // SJF
                 int bestRem = Integer.MAX_VALUE;
                 for (Process p : readyQueue) {
                     if (p.getRemainingBurstTime() < bestRem) {
                         bestRem = p.getRemainingBurstTime();
-                        bestSJF = p;
+                        best = p;
                     }
                 }
-
-                if (bestSJF != null && bestSJF.getRemainingBurstTime() < current.getRemainingBurstTime()) {
-                    current.setQuantum(current.getQuantum() + current.getRemainingQuantum());
-                    readyQueue.add(current);
-
-                    nextPick = PickMode.SJF;
-                    endTurn = true;
-                    break;
-                }
-
-                // execute 1 unit
-                current.setRemainingBurstTime(current.getRemainingBurstTime() - 1);
-                current.setRemainingQuantum(current.getRemainingQuantum() - 1);
-                currentTime++;
             }
 
-            if (endTurn) continue;
+            current = best;
+            readyQueue.remove(best);
+            nextPick = PickMode.FCFS;
+        }
 
-            caseivCheck();
-            if (endTurn) continue;
-            caseiCheck();
+        // record execution
+        if (executionOrder.isEmpty() ||
+            !executionOrder.get(executionOrder.size() - 1).equals(current.getName())) {
+            executionOrder.add(current.getName());
+        }
+
+        current.setRemainingQuantum(current.getQuantum());
+
+        // Phase 1: FCFS (25%)
+        int q1 = (int) ceil(0.25 * current.getQuantum());
+        int c1 = 0;
+
+        while (current.getRemainingBurstTime() > 0 &&
+               current.getRemainingQuantum() > 0 &&
+               c1 < q1) {
+
+            current.setRemainingBurstTime(current.getRemainingBurstTime() - 1);
+            current.setRemainingQuantum(current.getRemainingQuantum() - 1);
+            currentTime++;
+            c1++;
+
+            for (Process p : processes) {
+                if (p.getArrivalTime() <= currentTime && !p.addedToQueue) {
+                    readyQueue.add(p);
+                    p.addedToQueue = true;
+                }
+            }
+        }
+
+        if (current.getRemainingBurstTime() == 0) {
+            current.setCompletionTime(currentTime);
+            current.setQuantum(0);
+            completed++;
+            continue;
+        }
+
+        if (current.getRemainingQuantum() == 0) {
+            current.setQuantum(current.getQuantum() + 2);
+            readyQueue.add(current);
+            continue;
+        }
+
+        //Phase 2: Priority (25%) 
+        int q2 = (int) ceil(0.25 * current.getQuantum());
+        int c2 = 0;
+
+        Process bestPriority = null;
+        int bestPr = Integer.MAX_VALUE;
+        for (Process p : readyQueue) {
+            if (p.getPriority() < bestPr) {
+                bestPr = p.getPriority();
+                bestPriority = p;
+            }
+        }
+
+        if (bestPriority != null && bestPriority.getPriority() < current.getPriority()) {
+            int addQ = (int) ceil(current.getRemainingQuantum() / 2.0);
+            current.setQuantum(current.getQuantum() + addQ);
+            readyQueue.add(current);
+            nextPick = PickMode.PRIORITY;
+            continue;
+        }
+
+        while (current.getRemainingBurstTime() > 0 &&
+               current.getRemainingQuantum() > 0 &&
+               c2 < q2) {
+
+            current.setRemainingBurstTime(current.getRemainingBurstTime() - 1);
+            current.setRemainingQuantum(current.getRemainingQuantum() - 1);
+            currentTime++;
+            c2++;
+        }
+
+        if (current.getRemainingBurstTime() == 0) {
+            current.setCompletionTime(currentTime);
+            current.setQuantum(0);
+            completed++;
+            continue;
+        }
+
+        if (current.getRemainingQuantum() == 0) {
+            current.setQuantum(current.getQuantum() + 2);
+            readyQueue.add(current);
+            continue;
+        }
+
+        // Phase 3: SJF
+        while (current.getRemainingBurstTime() > 0 &&
+               current.getRemainingQuantum() > 0) {
+
+            Process bestSJF = null;
+            int bestRem = Integer.MAX_VALUE;
+            for (Process p : readyQueue) {
+                if (p.getRemainingBurstTime() < bestRem) {
+                    bestRem = p.getRemainingBurstTime();
+                    bestSJF = p;
+                }
+            }
+
+            if (bestSJF != null &&
+                bestSJF.getRemainingBurstTime() < current.getRemainingBurstTime()) {
+
+                current.setQuantum(current.getQuantum() + current.getRemainingQuantum());
+                readyQueue.add(current);
+                nextPick = PickMode.SJF;
+                break;
+            }
+
+            current.setRemainingBurstTime(current.getRemainingBurstTime() - 1);
+            current.setRemainingQuantum(current.getRemainingQuantum() - 1);
+            currentTime++;
+        }
+
+        if (current.getRemainingBurstTime() == 0) {
+            current.setCompletionTime(currentTime);
+            current.setQuantum(0);
+            completed++;
+        } else if (current.getRemainingQuantum() == 0) {
+            current.setQuantum(current.getQuantum() + 2);
+            readyQueue.add(current);
         }
     }
 
-    public void printResults() {
-        double totalWaiting = 0;
-        double totalTurnaround = 0;
+    //Results
+    double totalWaitingTime = 0, totalTurnaroundTime = 0;
 
-        // compute waiting/turnaround
-        for (Process p : processes) {
-            p.setTurnaroundTime(p.getCompletionTime() - p.getArrivalTime());
-            p.setWaitingTime(p.getTurnaroundTime() - p.getBurstTime());
-            totalWaiting += p.getWaitingTime();
-            totalTurnaround += p.getTurnaroundTime();
-        }
+    System.out.println("Execution Order = " + executionOrder);
 
-        System.out.println("execution Order = " + executionOrder);
+    for (Process p : processes) {
+        p.setTurnaroundTime(p.getCompletionTime() - p.getArrivalTime());
+        p.setWaitingTime(p.getTurnaroundTime() - p.getBurstTime());
 
-        for (Process p : processes) {
-            System.out.println(
-                p.getName() +
-                " Waiting Time=" + p.getWaitingTime() +
-                " Turnaround Time=" + p.getTurnaroundTime() +
-                " quantum History=" + p.getQuantumHistory()
-            );
-        }
+        totalWaitingTime += p.getWaitingTime();
+        totalTurnaroundTime += p.getTurnaroundTime();
 
-        System.out.printf("averageWaitingTime = %.2f%n", totalWaiting / processes.size()); //approximate to 2 decimal places
-        System.out.printf("averageTurnaroundTime = %.2f%n", totalTurnaround / processes.size());
+        System.out.println(
+            p.getName() +
+            " Waiting Time=" + p.getWaitingTime() +
+            " Turnaround Time=" + p.getTurnaroundTime() +
+            " Quantum History=" + p.getQuantumHistory()
+        );
     }
+
+    System.out.printf("Average WT = %.2f%n", totalWaitingTime / processes.size()); //approximate to 2 decimal places
+    System.out.printf("Average TAT = %.2f%n", totalTurnaroundTime / processes.size());
+ }
+
 }
-
-
 
 
