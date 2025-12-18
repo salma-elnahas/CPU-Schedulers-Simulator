@@ -228,17 +228,3 @@ class CPUsimulator {
 
 }
 
- 
-
-public class Main {
-    public static void main(String[] args) {
-        // CPUsimulator simulator = new CPUsimulator();
-        // List<Process> processes = new ArrayList<>();
-        // processes.add(new Process("P2", 2, 3, 0));  
-        // processes.add(new Process("P3", 4, 3, 0));    
-        // processes.add(new Process("P1", 0, 24, 0)); 
-    
-        // int contextSwitch = 0;  
-        // simulator.RRContextSwitch(processes, 4, contextSwitch);
-    }
-}
