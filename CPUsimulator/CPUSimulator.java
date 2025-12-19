@@ -1,74 +1,21 @@
+package CPUsimulator;
 import java.util.*;
 
-class Process {
-    private String name;
-    private int arrivalTime;
-    private int burstTime;
-    private int priority = 0;
-    private int remainingBurstTime; // for preemptive scheduling
-    // results variables
-    int completionTime;
-    int turnaroundTime;
-    int waitingTime;
+public class CPUSimulator {
 
-    //AG scheduling variables
-    private int quantum;           // current quantum 
-    private int remainingQuantum;  // remaining quantum
-    private int inputQuantum;   // for output
-    boolean addedToQueue = false;
-    List<Integer> quantumHistory = new ArrayList<>();
-
-
-    
-    Process(String name, int arrivalTime, int burstTime, int priority, int quantum) {
-        this.name = name;
-        this.arrivalTime = arrivalTime;
-        this.burstTime = burstTime;
-        this.priority = priority;
-        this.remainingBurstTime = burstTime; // initially remaining time is equal to burst time
-        this.quantum = quantum;
-        this.remainingQuantum = quantum;
-        this.inputQuantum = quantum;
-        this.quantumHistory.add(quantum);
-    }
-
-    void setRemainingBurstTime(int remainingBurstTime) { this.remainingBurstTime = remainingBurstTime; }
-    void setCompletionTime(int completionTime) { this.completionTime = completionTime; }
-    void setWaitingTime(int waitingTime) { this.waitingTime = waitingTime; }
-    void setTurnaroundTime(int turnaroundTime) { this.turnaroundTime = turnaroundTime; }
-
-   void setQuantum(int q) { 
-        this.quantum = q;
-        this.quantumHistory.add(q);
-    }
-    void setRemainingQuantum(int rq) { this.remainingQuantum = rq; }
-
-    int getArrivalTime() {return arrivalTime;}
-    int getBurstTime() {return burstTime;}
-    int getPriority() {return priority;}
-    int getRemainingBurstTime() {return remainingBurstTime;}
-    String getName() {return name;}
-    int getCompletionTime() { return completionTime; }
-    int getWaitingTime() { return waitingTime; }
-    int getTurnaroundTime() {return turnaroundTime;}
-    int getQuantum() { return quantum; }
-    int getRemainingQuantum() { return remainingQuantum; }
-    int getInputQuantum() { return inputQuantum; }
-    List<Integer> getQuantumHistory() { return quantumHistory; }
-   
-}
-
-class CPUsimulator {
+    List<String> executionOrder = new ArrayList<>();
+    public List<String> getExecutionOrder() {return executionOrder;}
     // preemptive Shortest-Job First (SJF) Scheduling with context switching
     public void preemptiveSJF(List<Process> processes, int contextSwitch) {
+        // clear previous state
+        this.executionOrder.clear();
         int currentT = 0;
         int completedP = 0;
         int numProcesses = processes.size();
         Process currentP = null;
         Process previousP = null;
 
-        List<String> executionOrder = new ArrayList<>();
-
+ 
         while (completedP < numProcesses) {
             // Find shortest job
             Process shortest = null;
@@ -147,6 +94,8 @@ class CPUsimulator {
 
     // Round Robin (RR) with context switching
     public void RRContextSwitch(List<Process> processes, int timeQuantum, int contextSwitch) {
+        // clear previous state
+        this.executionOrder.clear();
         int currentT = 0;
         int completedP = 0;
         int numProcesses = processes.size();
@@ -156,8 +105,7 @@ class CPUsimulator {
         Process previousP = null;
 
         Queue<Process> queue = new LinkedList<>();
-        List<String> executionOrder = new ArrayList<>();
-
+ 
         // First sort processes by arrival time
         processes.sort(Comparator.comparingInt(Process::getArrivalTime));
 
@@ -245,19 +193,19 @@ class CPUsimulator {
     }
 
     private void addArrivals(List<Process> processes, Queue<Process> readyQueue, int currentTime) {
-    for (Process p : processes) {
-        if (!p.addedToQueue && p.getArrivalTime() <= currentTime) {
-            readyQueue.add(p);
-            p.addedToQueue = true;
+        for (Process p : processes) {
+            if (!p.addedToQueue && p.getArrivalTime() <= currentTime) {
+                readyQueue.add(p);
+                p.addedToQueue = true;
+            }
+        }
+}
+    private void record(List<String> executionOrder, Process p) {
+        if (executionOrder.isEmpty() ||
+            !executionOrder.get(executionOrder.size() - 1).equals(p.getName())) {
+            executionOrder.add(p.getName());
         }
     }
-}
-private void record(List<String> executionOrder, Process p) {
-    if (executionOrder.isEmpty() ||
-        !executionOrder.get(executionOrder.size() - 1).equals(p.getName())) {
-        executionOrder.add(p.getName());
-    }
-}
 
 
     enum PickMode { FCFS, PRIORITY, SJF } //to switch between picking modes
@@ -267,10 +215,11 @@ private void record(List<String> executionOrder, Process p) {
     }
 
     public void AGScheduling(List<Process> processes) {
+        // clear previous state
+    this.executionOrder.clear();
 
     Queue<Process> readyQueue = new LinkedList<>();
-    List<String> executionOrder = new ArrayList<>();
-
+ 
     PickMode nextPick = PickMode.FCFS;
     int currentTime = 0;
     int completed = 0;
@@ -481,24 +430,4 @@ private void record(List<String> executionOrder, Process p) {
     }
 
 }
-
-public class Main {
-    public static void main(String[] args) {
-
-        // Build processes from the JSON test case
-        List<Process> processes = new ArrayList<>();
-        processes.add(new Process("P1", 0, 20, 5, 8));
-        processes.add(new Process("P2", 3, 4, 3, 6));
-        processes.add(new Process("P3", 6, 3, 4, 5));
-        processes.add(new Process("P4", 10, 2, 2, 4));
-        processes.add(new Process("P5", 15, 5, 6, 7));
-        processes.add(new Process("P6", 20, 6, 1, 3));
-
-        // Run AG Scheduling
-        CPUsimulator sim = new CPUsimulator();
-        sim.AGScheduling(processes);
-    }
-}
-
-
-
+ 
