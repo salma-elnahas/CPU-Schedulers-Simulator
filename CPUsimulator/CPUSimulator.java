@@ -1,75 +1,21 @@
-import static java.lang.Math.ceil;
+package CPUsimulator;
 import java.util.*;
 
-class Process {
-    private String name;
-    private int arrivalTime;
-    private int burstTime;
-    private int priority = 0;
-    private int remainingBurstTime; // for preemptive scheduling
-    // results variables
-    int completionTime;
-    int turnaroundTime;
-    int waitingTime;
+public class CPUSimulator {
 
-    //AG scheduling variables
-    private int quantum;           // current quantum 
-    private int remainingQuantum;  // remaining quantum
-    private int inputQuantum;   // for output
-    boolean addedToQueue = false;
-    List<Integer> quantumHistory = new ArrayList<>();
-
-
-    
-    Process(String name, int arrivalTime, int burstTime, int priority, int quantum) {
-        this.name = name;
-        this.arrivalTime = arrivalTime;
-        this.burstTime = burstTime;
-        this.priority = priority;
-        this.remainingBurstTime = burstTime; // initially remaining time is equal to burst time
-        this.quantum = quantum;
-        this.remainingQuantum = quantum;
-        this.inputQuantum = quantum;
-        this.quantumHistory.add(quantum);
-    }
-
-    void setRemainingBurstTime(int remainingBurstTime) { this.remainingBurstTime = remainingBurstTime; }
-    void setCompletionTime(int completionTime) { this.completionTime = completionTime; }
-    void setWaitingTime(int waitingTime) { this.waitingTime = waitingTime; }
-    void setTurnaroundTime(int turnaroundTime) { this.turnaroundTime = turnaroundTime; }
-
-   void setQuantum(int q) { 
-        this.quantum = q;
-        this.quantumHistory.add(q);
-    }
-    void setRemainingQuantum(int rq) { this.remainingQuantum = rq; }
-
-    int getArrivalTime() {return arrivalTime;}
-    int getBurstTime() {return burstTime;}
-    int getPriority() {return priority;}
-    int getRemainingBurstTime() {return remainingBurstTime;}
-    String getName() {return name;}
-    int getCompletionTime() { return completionTime; }
-    int getWaitingTime() { return waitingTime; }
-    int getTurnaroundTime() {return turnaroundTime;}
-    int getQuantum() { return quantum; }
-    int getRemainingQuantum() { return remainingQuantum; }
-    int getInputQuantum() { return inputQuantum; }
-    List<Integer> getQuantumHistory() { return quantumHistory; }
-   
-}
-
-class CPUsimulator {
+    List<String> executionOrder = new ArrayList<>();
+    public List<String> getExecutionOrder() {return executionOrder;}
     // preemptive Shortest-Job First (SJF) Scheduling with context switching
     public void preemptiveSJF(List<Process> processes, int contextSwitch) {
+        // clear previous state
+        this.executionOrder.clear();
         int currentT = 0;
         int completedP = 0;
         int numProcesses = processes.size();
         Process currentP = null;
         Process previousP = null;
 
-        List<String> executionOrder = new ArrayList<>();
-
+ 
         while (completedP < numProcesses) {
             // Find shortest job
             Process shortest = null;
@@ -148,6 +94,8 @@ class CPUsimulator {
 
     // Round Robin (RR) with context switching
     public void RRContextSwitch(List<Process> processes, int timeQuantum, int contextSwitch) {
+        // clear previous state
+        this.executionOrder.clear();
         int currentT = 0;
         int completedP = 0;
         int numProcesses = processes.size();
@@ -157,8 +105,7 @@ class CPUsimulator {
         Process previousP = null;
 
         Queue<Process> queue = new LinkedList<>();
-        List<String> executionOrder = new ArrayList<>();
-
+ 
         // First sort processes by arrival time
         processes.sort(Comparator.comparingInt(Process::getArrivalTime));
 
@@ -245,148 +192,66 @@ class CPUsimulator {
 
     }
 
-    public void priorityScheduling(List<Process> processes, int agingInterval) {
-        int currentT = 0;
-        int completedP = 0;
-        int numProcesses = processes.size();
-
-        List<String> executionOrder = new ArrayList<>();
-
-        // track when each process last executed
-        Map<Process, Integer> lastExecutedTime = new HashMap<>();
+    private void addArrivals(List<Process> processes, Queue<Process> readyQueue, int currentTime) {
         for (Process p : processes) {
-            lastExecutedTime.put(p, 0);
-        }
-
-        // store original priorities
-        Map<Process, Integer> originalPriority = new HashMap<>();
-        for (Process p : processes) {
-            originalPriority.put(p, p.getPriority());
-        }
-
-        while (completedP < numProcesses) {
-            // find processes that have arrived and still have burst time
-            List<Process> readyQueue = new ArrayList<>();
-            for (Process p : processes) {
-                if (p.getArrivalTime() <= currentT && p.getRemainingBurstTime() > 0) {
-                    readyQueue.add(p);
-                }
-            }
-
-            // if no ready process, advance time
-            if (readyQueue.isEmpty()) {
-                currentT++;
-                continue;
-            }
-
-            // apply aging : increase priority of waiting processes
-            for (Process p : readyQueue) {
-                int waitingTime = currentT - lastExecutedTime.get(p);
-                // every agingInterval time units, improve priority by 1
-                int priorityBoost = waitingTime / agingInterval;
-                int adjustedPriority = Math.max(0, originalPriority.get(p) - priorityBoost);
-                p.priority = adjustedPriority;
-            }
-
-            // select process with lowest priority number
-            Process selected = readyQueue.get(0);
-            for (Process p : readyQueue) {
-                if (p.priority < selected.priority) {
-                    selected = p;
-                }
-            }
-
-            // add to execution order
-            if (executionOrder.isEmpty() || !executionOrder.get(executionOrder.size() - 1).equals(selected.getName())) {
-                executionOrder.add(selected.getName());
-            }
-
-            // execute for 1 time unit
-            selected.setRemainingBurstTime(selected.getRemainingBurstTime() - 1);
-            currentT++;
-            lastExecutedTime.put(selected, currentT);
-
-            // check if process completed
-            if (selected.getRemainingBurstTime() == 0) {
-                completedP++;
-                selected.setCompletionTime(currentT);
-                selected.setTurnaroundTime(selected.getCompletionTime() - selected.getArrivalTime());
-                selected.setWaitingTime(selected.getTurnaroundTime() - selected.getBurstTime());
-                System.out.println("Process " + selected.getName() + " completed at time " + currentT);
-            }
-
-            // restore original priority
-            selected.priority = originalPriority.get(selected);
-        }
-
-        // print results
-        System.out.println("Execution Order: " + executionOrder);
-        System.out.println("\nProcess\tArrival\tBurst\tCompletion\tTAT\tWT");
-        System.out.println("---------------------------------------------------");
-        double totalWaitingTime = 0;
-        double totalTurnaroundTime = 0;
-
-        for (Process proc : processes) {
-            proc.setTurnaroundTime(proc.getCompletionTime() - proc.getArrivalTime());
-            proc.setWaitingTime(proc.getTurnaroundTime() - proc.getBurstTime());
-            System.out.println(proc.getName() + "\t" +
-                    proc.getArrivalTime() + "\t" +
-                    proc.getBurstTime() + "\t" +
-                    proc.getCompletionTime() + "\t\t" +
-                    proc.getTurnaroundTime() + "\t" +
-                    proc.getWaitingTime());
-
-            totalWaitingTime += proc.getWaitingTime();
-            totalTurnaroundTime += proc.getTurnaroundTime();
-        }
-
-        System.out.println("---------------------------------------------------");
-        System.out.println("Average Waiting Time: " + (totalWaitingTime / numProcesses));
-        System.out.println("Average Turnaround Time: " + (totalTurnaroundTime / numProcesses));
-    }
-
-    enum PickMode { FCFS, PRIORITY, SJF }
-
-    public void AGScheduling(List<Process> processes) {
-
-    Queue<Process> readyQueue = new LinkedList<>();
-    List<String> executionOrder = new ArrayList<>();
-
-    PickMode nextPick = PickMode.FCFS;
-
-    int currentTime = 0;
-    int completed = 0;
-
-    // reset process state (important if reused)
-    for (Process p : processes) {
-        p.addedToQueue = false;
-        p.setRemainingBurstTime(p.getBurstTime());
-        p.setRemainingQuantum(p.getQuantum());
-    }
-
-    while (completed < processes.size()) {
-
-        // add arrived processes
-        for (Process p : processes) {
-            if (p.getArrivalTime() <= currentTime && !p.addedToQueue) {
+            if (!p.addedToQueue && p.getArrivalTime() <= currentTime) {
                 readyQueue.add(p);
                 p.addedToQueue = true;
             }
         }
+}
+    private void record(List<String> executionOrder, Process p) {
+        if (executionOrder.isEmpty() ||
+            !executionOrder.get(executionOrder.size() - 1).equals(p.getName())) {
+            executionOrder.add(p.getName());
+        }
+    }
 
+
+    enum PickMode { FCFS, PRIORITY, SJF } //to switch between picking modes
+
+    public void AGScheduling() {
+    AGScheduling(this.processes);
+    }
+
+    public void AGScheduling(List<Process> processes) {
+        // clear previous state
+    this.executionOrder.clear();
+
+    Queue<Process> readyQueue = new LinkedList<>();
+ 
+    PickMode nextPick = PickMode.FCFS;
+    int currentTime = 0;
+    int completed = 0;
+
+    // reset state
+    for (Process p : processes) {
+        p.addedToQueue = false; // process not yet in ready queu
+        p.setRemainingBurstTime(p.getBurstTime()); // reset remaining CPU time
+        p.setRemainingQuantum(p.getQuantum()); // reset remaining quantum
+
+    }
+
+    // Continue until all processes finish
+    while (completed < processes.size()) {
+
+         // Add newly arrived processes to the ready queue
+        addArrivals(processes, readyQueue, currentTime);
+
+        // If no process is ready, CPU stays idle
         if (readyQueue.isEmpty()) {
             currentTime++;
             continue;
         }
 
         // pick process
-        Process current = null;
-
+        Process current;
         if (nextPick == PickMode.FCFS) {
+            // Take the first process in the ready queue
             current = readyQueue.poll();
         } else {
             Process best = null;
-
+            // Priority-based selection (lower value = higher priority)
             if (nextPick == PickMode.PRIORITY) {
                 int bestPr = Integer.MAX_VALUE;
                 for (Process p : readyQueue) {
@@ -395,6 +260,7 @@ class CPUsimulator {
                         best = p;
                     }
                 }
+                
             } else { // SJF
                 int bestRem = Integer.MAX_VALUE;
                 for (Process p : readyQueue) {
@@ -404,60 +270,52 @@ class CPUsimulator {
                     }
                 }
             }
-
+            // Select and remove chosen process from queue
             current = best;
             readyQueue.remove(best);
             nextPick = PickMode.FCFS;
         }
 
-        // record execution
-        if (executionOrder.isEmpty() ||
-            !executionOrder.get(executionOrder.size() - 1).equals(current.getName())) {
-            executionOrder.add(current.getName());
-        }
-
+        // Reset the remaining quantum at the start of this process’s turn
         current.setRemainingQuantum(current.getQuantum());
+        record(executionOrder, current);
 
-        // Phase 1: FCFS (25%)
-        int q1 = (int) ceil(0.25 * current.getQuantum());
-        int c1 = 0;
+        // phase 1: FCFS 25%
+        int q1 = (int) Math.ceil(0.25 * current.getQuantum());
+        int c1 = 0; // Counter to track how much of Phase 1 has been used
 
-        while (current.getRemainingBurstTime() > 0 &&
-               current.getRemainingQuantum() > 0 &&
-               c1 < q1) {
-
+        while (c1 < q1 &&
+               current.getRemainingBurstTime() > 0 &&
+               current.getRemainingQuantum() > 0) {
+            // Execute process for 1 time unit
             current.setRemainingBurstTime(current.getRemainingBurstTime() - 1);
+            // Consume 1 unit of quantum
             current.setRemainingQuantum(current.getRemainingQuantum() - 1);
             currentTime++;
             c1++;
-
-            for (Process p : processes) {
-                if (p.getArrivalTime() <= currentTime && !p.addedToQueue) {
-                    readyQueue.add(p);
-                    p.addedToQueue = true;
-                }
-            }
+            
+            // Add any newly arrived processes to the ready queue
+            addArrivals(processes, readyQueue, currentTime);
         }
 
+        // Case IV: finished
         if (current.getRemainingBurstTime() == 0) {
             current.setCompletionTime(currentTime);
             current.setQuantum(0);
             completed++;
-            continue;
+            continue;  // Move to next scheduling cycle
         }
 
+        // Case I: quantum finished => Q += 2
         if (current.getRemainingQuantum() == 0) {
             current.setQuantum(current.getQuantum() + 2);
-            readyQueue.add(current);
+            readyQueue.add(current); // Send process to the end of the ready queue
             continue;
         }
 
-        //Phase 2: Priority (25%) 
-        int q2 = (int) ceil(0.25 * current.getQuantum());
-        int c2 = 0;
-
+        // Phase 2, priority check only, no execution
         Process bestPriority = null;
-        int bestPr = Integer.MAX_VALUE;
+        int bestPr = Integer.MAX_VALUE; 
         for (Process p : readyQueue) {
             if (p.getPriority() < bestPr) {
                 bestPr = p.getPriority();
@@ -465,24 +323,31 @@ class CPUsimulator {
             }
         }
 
+        // Case II
         if (bestPriority != null && bestPriority.getPriority() < current.getPriority()) {
-            int addQ = (int) ceil(current.getRemainingQuantum() / 2.0);
+            int addQ = (int) Math.ceil(current.getRemainingQuantum() / 2.0);
             current.setQuantum(current.getQuantum() + addQ);
+            // Put the current process back at the end of the ready queue
             readyQueue.add(current);
+            // We don’t immediately run the priority process , we set nextPick so the next scheduling decision picks by priority.
             nextPick = PickMode.PRIORITY;
             continue;
         }
 
-        while (current.getRemainingBurstTime() > 0 &&
-               current.getRemainingQuantum() > 0 &&
-               c2 < q2) {
+        int q2 = (int) Math.ceil(0.25 * current.getQuantum());
+        int c2 = 0; // Counter to track how many time units used in Phase 2
+
+        while (c2 < q2 &&  current.getRemainingBurstTime() > 0 && current.getRemainingQuantum() > 0) {
 
             current.setRemainingBurstTime(current.getRemainingBurstTime() - 1);
             current.setRemainingQuantum(current.getRemainingQuantum() - 1);
             currentTime++;
             c2++;
+
+            addArrivals(processes, readyQueue, currentTime);
         }
 
+        // Case IV: finished
         if (current.getRemainingBurstTime() == 0) {
             current.setCompletionTime(currentTime);
             current.setQuantum(0);
@@ -490,17 +355,21 @@ class CPUsimulator {
             continue;
         }
 
+        // Case I: quantum finished
         if (current.getRemainingQuantum() == 0) {
             current.setQuantum(current.getQuantum() + 2);
             readyQueue.add(current);
             continue;
         }
 
-        // Phase 3: SJF
+        // phase 3: SJF (preemptive) 
         while (current.getRemainingBurstTime() > 0 &&
                current.getRemainingQuantum() > 0) {
 
-            Process bestSJF = null;
+            addArrivals(processes, readyQueue, currentTime);
+
+             // Find the process with the smallest remaining burst time in the ready queue
+            Process bestSJF = null; 
             int bestRem = Integer.MAX_VALUE;
             for (Process p : readyQueue) {
                 if (p.getRemainingBurstTime() < bestRem) {
@@ -509,54 +378,56 @@ class CPUsimulator {
                 }
             }
 
-            if (bestSJF != null &&
-                bestSJF.getRemainingBurstTime() < current.getRemainingBurstTime()) {
-
+            // case III
+            if (bestSJF != null && bestSJF.getRemainingBurstTime() < current.getRemainingBurstTime()) {
+                // Restore the unused quantum back to the process's total quantum
                 current.setQuantum(current.getQuantum() + current.getRemainingQuantum());
                 readyQueue.add(current);
                 nextPick = PickMode.SJF;
                 break;
             }
 
-            current.setRemainingBurstTime(current.getRemainingBurstTime() - 1);
+            current.setRemainingBurstTime(current.getRemainingBurstTime() - 1); // Decrement the remaining burst time
             current.setRemainingQuantum(current.getRemainingQuantum() - 1);
             currentTime++;
         }
 
         if (current.getRemainingBurstTime() == 0) {
-            current.setCompletionTime(currentTime);
-            current.setQuantum(0);
+            current.setCompletionTime(currentTime); // Record the completion time for turnaround time calculation
+            current.setQuantum(0); // Reset quantum to 0 as the process is done
             completed++;
-        } else if (current.getRemainingQuantum() == 0) {
+        } else if (current.getRemainingQuantum() == 0) { 
             current.setQuantum(current.getQuantum() + 2);
             readyQueue.add(current);
         }
     }
 
-    //Results
-    double totalWaitingTime = 0, totalTurnaroundTime = 0;
+    // Results
+    double totalwaiting = 0, totalTurnaround = 0;
 
     System.out.println("Execution Order = " + executionOrder);
-
     for (Process p : processes) {
         p.setTurnaroundTime(p.getCompletionTime() - p.getArrivalTime());
         p.setWaitingTime(p.getTurnaroundTime() - p.getBurstTime());
+        totalwaiting += p.getWaitingTime();
+        totalTurnaround += p.getTurnaroundTime();
 
-        totalWaitingTime += p.getWaitingTime();
-        totalTurnaroundTime += p.getTurnaroundTime();
-
-        System.out.println(
-            p.getName() +
-            " Waiting Time=" + p.getWaitingTime() +
-            " Turnaround Time=" + p.getTurnaroundTime() +
-            " Quantum History=" + p.getQuantumHistory()
-        );
+        System.out.println(p.getName() +
+                " Waiting Time=" + p.getWaitingTime() +
+                " Turnaround Time=" + p.getTurnaroundTime() +
+                " Quantum History=" + p.getQuantumHistory());
     }
 
-    System.out.printf("Average WT = %.2f%n", totalWaitingTime / processes.size()); //approximate to 2 decimal places
-    System.out.printf("Average TAT = %.2f%n", totalTurnaroundTime / processes.size());
- }
+    System.out.printf("Average WT = %.2f%n", totalwaiting / processes.size()); //approximate to 2 decimal places
+    System.out.printf("Average TAT = %.2f%n", totalTurnaround / processes.size());
+    }
+
+    //for testing purposes
+    List<Process> processes = new ArrayList<>();
+
+    public void add(Process p) {
+    processes.add(p);
+    }
 
 }
-
-
+ 
