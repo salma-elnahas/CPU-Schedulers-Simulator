@@ -73,18 +73,18 @@ public class CpuSimulatorTest {
         }
     }
 
-    // // Priority testing method
-    // @Test
-    // public void testPreemptivePriority() throws Exception {
-    //      List<String> jsonFiles = getJsonFiles("test_cases_v5/test_cases_v5/Other_Schedulers");
-    //    assertFalse(jsonFiles.isEmpty(), "No test files found in test_cases_v5");
+     // Priority testing method
+     @Test
+     public void testPreemptivePriority() throws Exception {
+          List<String> jsonFiles = getJsonFiles("test_cases_v5/test_cases_v5/Other_Schedulers");
+        assertFalse(jsonFiles.isEmpty(), "No test files found in test_cases_v5");
 
-    //     // Loop through each test file and run the RR test
-    //     for (String file : jsonFiles) {
-    //         System.out.println(" Testing Round Robin from: " + file);
-    //         runSchedulerTest(file, "Priority");
-    //     }
-    // }
+         // Loop through each test file and run the RR test
+         for (String file : jsonFiles) {
+             System.out.println(" Testing Round Robin from: " + file);
+             runSchedulerTest(file, "Priority");
+         }
+     }
 
     // AG testing method
     @Test
@@ -124,11 +124,11 @@ public class CpuSimulatorTest {
                 actualExecutionOrder  = simulator.getExecutionOrder();
                 validateResults(processes, output.getRoundRobin(), actualExecutionOrder, testCase.getName());
                 break;
-            // case "Priority":
-            //     simulator.priorityScheduling(processes, input.getAgingInterval());
-            //     actualExecutionOrder = simulator.getExecutionOrder();
-            //     validateResults(processes, output.getPreemptivePriority(), actualExecutionOrder, testCase.getName());
-            //     break;
+             case "Priority":
+                 simulator.priorityScheduling(processes, input.getAgingInterval());
+                 actualExecutionOrder = simulator.getExecutionOrder();
+                 validateResults(processes, output.getPreemptivePriority(), actualExecutionOrder, testCase.getName());
+                 break;
         }
     }
 }
