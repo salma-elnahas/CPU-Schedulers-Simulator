@@ -344,7 +344,6 @@ private void record(List<String> executionOrder, Process p) {
             current.setRemainingQuantum(current.getRemainingQuantum() - 1);
             currentTime++;
             c1++;
-            
             // Add any newly arrived processes to the ready queue
             addArrivals(processes, readyQueue, currentTime);
         }
