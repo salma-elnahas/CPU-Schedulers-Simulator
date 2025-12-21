@@ -18,6 +18,7 @@ import CPUsimulator.Process;
 // File handling imports
 import java.io.FileReader;
 import java.util.ArrayList;
+import java.io.File;
 
 
 // Main test class
@@ -25,7 +26,20 @@ public class CpuSimulatorTest {
     // Initialize CPU simulator and Gson
     private CPUSimulator simulator;
     private Gson gson;
-
+    // Helper method to get all JSON files from folder
+    private List<String> getJsonFiles(String path) {
+    List<String> filePaths = new ArrayList<>();
+    File folder = new File(path);
+    File[] filesList = folder.listFiles();
+    if (filesList != null) {
+        for (File file : filesList) {
+            if (file.isFile() && file.getName().endsWith(".json")) {
+                filePaths.add(file.getPath());
+            }
+        }
+    }
+    return filePaths;
+}
     // Before each test, set up the simulator and Gson
     @BeforeEach
     public void setUp() throws Exception {
@@ -36,72 +50,50 @@ public class CpuSimulatorTest {
    // SJF testing method
     @Test
     public void testPreemptiveSJF() throws Exception {
-        // STATIC will change to DYNAMIC later !!
-        String[] testFiles = {
-            "test_cases_v3/Other_Schedulers/test_1.json",
-            "test_cases_v3/Other_Schedulers/test_2.json",
-            "test_cases_v3/Other_Schedulers/test_3.json",
-            "test_cases_v3/Other_Schedulers/test_4.json",
-            "test_cases_v3/Other_Schedulers/test_5.json",
-            "test_cases_v3/Other_Schedulers/test_6.json"
-        };
+        List<String> jsonFiles = getJsonFiles("test_cases_v5/test_cases_v5/Other_Schedulers");
+        assertFalse(jsonFiles.isEmpty(), "No test files found in test_cases_v5");
+        
         // Loop through each test file and run the SJF test
-        for (String filePath : testFiles) {
-            System.out.println(" Testing SJF from: " + filePath + "\n");
-            runSchedulerTest(filePath, "SJF");
+        for (String file : jsonFiles) {
+            System.out.println(" Testing SJF from: " + file);
+            runSchedulerTest(file, "SJF");
         }
     }
 
     // RR testing method
     @Test
     public void testRoundRobin() throws Exception {
-        String[] testFiles = {
-            "test_cases_v3/Other_Schedulers/test_1.json",
-            "test_cases_v3/Other_Schedulers/test_2.json",
-            "test_cases_v3/Other_Schedulers/test_3.json",
-            "test_cases_v3/Other_Schedulers/test_4.json",
-            "test_cases_v3/Other_Schedulers/test_5.json",
-            "test_cases_v3/Other_Schedulers/test_6.json"
-        };
+        List<String> jsonFiles = getJsonFiles("test_cases_v5/test_cases_v5/Other_Schedulers");
+        assertFalse(jsonFiles.isEmpty(), "No test files found in test_cases_v5");
+
         // Loop through each test file and run the RR test
-        for (String filePath : testFiles) {
-            System.out.println(" Testing Round Robin from: " + filePath + "\n");
-            runSchedulerTest(filePath, "RR");
+        for (String file : jsonFiles) {
+            System.out.println(" Testing Round Robin from: " + file);
+            runSchedulerTest(file, "RR");
         }
     }
 
     // // Priority testing method
     // @Test
     // public void testPreemptivePriority() throws Exception {
-    //     String[] testFiles = {
-    //         "test_cases_v3/Other_Schedulers/test_1.json",
-    //         "test_cases_v3/Other_Schedulers/test_2.json",
-    //         "test_cases_v3/Other_Schedulers/test_3.json",
-    //         "test_cases_v3/Other_Schedulers/test_4.json",
-    //         "test_cases_v3/Other_Schedulers/test_5.json",
-    //         "test_cases_v3/Other_Schedulers/test_6.json"
-    //     };
-    //     // Loop through each test file and run the Priority test
-    //     for (String filePath : testFiles) {
-    //         System.out.println(" Testing Priority from: " + filePath + "\n");
-    //         runSchedulerTest(filePath, "Priority");
+    //      List<String> jsonFiles = getJsonFiles("test_cases_v5/test_cases_v5/Other_Schedulers");
+    //    assertFalse(jsonFiles.isEmpty(), "No test files found in test_cases_v5");
+
+    //     // Loop through each test file and run the RR test
+    //     for (String file : jsonFiles) {
+    //         System.out.println(" Testing Round Robin from: " + file);
+    //         runSchedulerTest(file, "Priority");
     //     }
     // }
 
     // AG testing method
     @Test
     public void testAGScheduling() throws Exception {
-        String[] testFiles = {
-            "test_cases_v3/AG/AG_test1.json",
-            "test_cases_v3/AG/AG_test2.json",
-            "test_cases_v3/AG/AG_test3.json",
-            "test_cases_v3/AG/AG_test4.json",
-            "test_cases_v3/AG/AG_test5.json",
-            "test_cases_v3/AG/AG_test6.json"
-        };
-        
-        for (String filePath : testFiles) {
-            System.out.println(" Testing AG Scheduler from: " + filePath + "\n");
+        List<String> jsonFiles = getJsonFiles("test_cases_v5/test_cases_v5/AG");
+        assertFalse(jsonFiles.isEmpty(), "No test files found in test_cases_v5");
+
+        for (String filePath : jsonFiles) {
+            System.out.println(" Testing AG Scheduler from: " + filePath);
             runAGSchedulerTest(filePath);
         }
     }
@@ -252,7 +244,7 @@ public class CpuSimulatorTest {
         double expAvgTurnaround = expected.getAverageTurnaroundTime();
         double actAvgWaiting = calculateAverageWaitingTime(actual);
         double actAvgTurnaround = calculateAverageTurnaroundTime(actual);
-        double delta = 0.01; // for floating point comparison
+        double delta = 0.01; // to handle floating point precision
         assertEquals(expAvgWaiting, actAvgWaiting, delta, "Average waiting time mismatch for test: " + testName);
         assertEquals(expAvgTurnaround, actAvgTurnaround, delta, "Average turnaround time mismatch for test: " + testName);
         System.out.println(" Average Waiting and Turnaround Time matches: " );
