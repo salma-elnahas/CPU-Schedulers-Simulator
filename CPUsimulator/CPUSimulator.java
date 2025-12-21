@@ -418,7 +418,7 @@ public class CPUSimulator {
                 " Quantum History=" + p.getQuantumHistory());
     }
 
-    System.out.printf("Average WT = %.2f%n", totalwaiting / processes.size()); //approximate to 2 decimal places
+    System.out.printf("Average WT = %.2f%n", totalwaiting / processes.size()); // approximate to 2 decimal places
     System.out.printf("Average TAT = %.2f%n", totalTurnaround / processes.size());
     }
 
