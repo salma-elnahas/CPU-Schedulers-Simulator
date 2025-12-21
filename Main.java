@@ -344,6 +344,7 @@ private void record(List<String> executionOrder, Process p) {
             current.setRemainingQuantum(current.getRemainingQuantum() - 1);
             currentTime++;
             c1++;
+            
             // Add any newly arrived processes to the ready queue
             addArrivals(processes, readyQueue, currentTime);
         }
@@ -486,16 +487,19 @@ public class Main {
 
         // Build processes from the JSON test case
         List<Process> processes = new ArrayList<>();
-        processes.add(new Process("P1", 0, 20, 5, 8));
-        processes.add(new Process("P2", 3, 4, 3, 6));
-        processes.add(new Process("P3", 6, 3, 4, 5));
-        processes.add(new Process("P4", 10, 2, 2, 4));
-        processes.add(new Process("P5", 15, 5, 6, 7));
-        processes.add(new Process("P6", 20, 6, 1, 3));
+        processes.add(new Process("P1", 0, 3, 2, 10));
+        processes.add(new Process("P2", 2, 4, 3, 12));
+        processes.add(new Process("P3", 5, 2, 1, 8));
+        processes.add(new Process("P4", 8, 5, 4, 15));
+        processes.add(new Process("P5", 12, 3, 5, 9));
 
-        // Run AG Scheduling
+        // Run AG scheduling
         CPUsimulator sim = new CPUsimulator();
         sim.AGScheduling(processes);
+
+        // If your AGScheduling already prints results, you're done.
+        // If not, print results here (only if you have a method for it).
+        // sim.printResults(processes);
     }
 }
 
