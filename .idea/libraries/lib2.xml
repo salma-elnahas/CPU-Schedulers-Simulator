@@ -1,5 +1,5 @@
 <component name="libraryTable">
-  <library name="lib">
+  <library name="lib2">
     <CLASSES>
       <root url="jar://$PROJECT_DIR$/lib/junit-platform-console-standalone-1.9.2.jar!/" />
       <root url="jar://$PROJECT_DIR$/lib/gson-2.10.1.jar!/" />

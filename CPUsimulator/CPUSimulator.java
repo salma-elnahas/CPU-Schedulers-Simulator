@@ -207,148 +207,87 @@ public class CPUSimulator {
         }
     }
 
+    // priority Scheduling
     public void priorityScheduling(List<Process> processes, int agingInterval) {
-        this.executionOrder.clear();
+        int currentT = 0;
+        int completedP = 0;
+        int numProcesses = processes.size();
 
-        //priorities and waiting start times per process
-        Map<Process, Integer> effectivePriorities = new HashMap<>();
-        Map<Process, Integer> waitStartTimes = new HashMap<>();
+        List<String> executionOrder = new ArrayList<>();
 
+        // track when each process last executed
+        Map<Process, Integer> lastExecutedTime = new HashMap<>();
         for (Process p : processes) {
-            effectivePriorities.put(p, p.getPriority());
-            waitStartTimes.put(p, -1);
-            // reset remaining time in case the same list is reused
-            p.setRemainingBurstTime(p.getBurstTime());
+            lastExecutedTime.put(p, 0);
         }
 
-        List<Process> pendingArrivals = new ArrayList<>(processes);
-        List<Process> readyQueue = new ArrayList<>();
+        // store original priorities
+        Map<Process, Integer> originalPriority = new HashMap<>();
+        for (Process p : processes) {
+            originalPriority.put(p, p.getPriority());
+        }
 
-        int currentTime = 0;
-        int completed = 0;
-        Process currentProcess = null;
-        String lastExecutedProcessName = null;
-
-        java.util.function.BiConsumer<List<Process>, Integer> checkArrivals = (queue, time) -> {
-            Iterator<Process> it = pendingArrivals.iterator();
-            while (it.hasNext()) {
-                Process p = it.next();
-                if (p.getArrivalTime() <= time) {
-                    if (!queue.contains(p)) {
-                        queue.add(p);
-                        // process starts waiting from its arrival
-                        waitStartTimes.put(p, p.getArrivalTime());
-                    }
-                    it.remove();
-                }
-            }
-        };
-
-        java.util.function.BiConsumer<List<Process>, Integer> updatePriorityAtTime = (queue, time) -> {
-            for (Process p : queue) {
-                int start = waitStartTimes.get(p);
-                if (start == -1) continue;  // not currently waiting
-                int timeInQueue = time - start;
-                if (timeInQueue >= agingInterval && agingInterval > 0) {
-                    int priorityBoost = timeInQueue / agingInterval;
-                    int curPrio = effectivePriorities.get(p);
-                    int newPrio = Math.max(1, curPrio - priorityBoost);
-                    effectivePriorities.put(p, newPrio);
-                    // reset wait start from now
-                    waitStartTimes.put(p, time);
-                }
-            }
-        };
-
-        java.util.function.Supplier<Process> getHighestPriorityProcess = () -> {
-            if (readyQueue.isEmpty()) return null;
-            Process highest = readyQueue.get(0);
-            for (Process p : readyQueue) {
-                int highPrio = effectivePriorities.get(highest);
-                int pPrio = effectivePriorities.get(p);
-                if (pPrio < highPrio ||
-                        (pPrio == highPrio && p.getArrivalTime() < highest.getArrivalTime())) {
-                    highest = p;
-                }
-            }
-            return highest;
-        };
-
-        while (true) {
-            // add newly arrived processes
-            checkArrivals.accept(readyQueue, currentTime);
-            // update priorities  at this current time
-            updatePriorityAtTime.accept(readyQueue, currentTime);
-
-            // handle preemption if a higher or equal priority ready process exists
-            if (currentProcess != null && !readyQueue.isEmpty() && readyQueue.contains(currentProcess)) {
-                Process highestInQueue = getHighestPriorityProcess.get();
-                int curPrio = effectivePriorities.get(currentProcess);
-                int highPrio = effectivePriorities.get(highestInQueue);
-                if (highestInQueue != currentProcess && highPrio <= curPrio) {
-                    // preempt current process
-                    // mark it as waiting again
-                    waitStartTimes.put(currentProcess, currentTime);
-                    currentProcess = highestInQueue;
+        while (completedP < numProcesses) {
+            // find processes that have arrived and still have burst time
+            List<Process> readyQueue = new ArrayList<>();
+            for (Process p : processes) {
+                if (p.getArrivalTime() <= currentT && p.getRemainingBurstTime() > 0) {
+                    readyQueue.add(p);
                 }
             }
 
-            // if CPU idle, pick a process
-            if (currentProcess == null && !readyQueue.isEmpty()) {
-                Process highest = getHighestPriorityProcess.get();
-                currentProcess = highest;
-            }
-
-            // termination / idle time jump
-            if (currentProcess == null) {
-                if (completed == processes.size()) {
-                    break;
-                }
-
-                // jump to next arrival if any, otherwise advance by 1
-                int nextTime = Integer.MAX_VALUE;
-                if (!pendingArrivals.isEmpty()) {
-                    nextTime = pendingArrivals.get(0).getArrivalTime();
-                }
-                if (nextTime != Integer.MAX_VALUE && nextTime > currentTime) {
-                    currentTime = nextTime;
-                } else {
-                    currentTime++;
-                }
+            // if no ready process, advance time
+            if (readyQueue.isEmpty()) {
+                currentT++;
                 continue;
             }
 
-            // record execution (avoid consecutive duplicates)
-            if (executionOrder.isEmpty() ||
-                    !executionOrder.get(executionOrder.size() - 1).equals(currentProcess.getName())) {
-                executionOrder.add(currentProcess.getName());
+            // apply aging: increase priority of waiting processes
+            for (Process p : readyQueue) {
+                int waitingTime = currentT - lastExecutedTime.get(p);
+                // every agingInterval time units, improve priority by 1
+                int priorityBoost = waitingTime / agingInterval;
+                int adjustedPriority = Math.max(0, originalPriority.get(p) - priorityBoost);
+                p.priority = adjustedPriority;
             }
 
-            // run current process for 1 time unit
-            currentProcess.setRemainingBurstTime(currentProcess.getRemainingBurstTime() - 1);
-            // it's running -> not waiting
-            waitStartTimes.put(currentProcess, -1);
-            currentTime++;
-
-            // check completion
-            if (currentProcess.getRemainingBurstTime() == 0) {
-                currentProcess.setCompletionTime(currentTime);
-                completed++;
-                readyQueue.remove(currentProcess);
-                lastExecutedProcessName = currentProcess.getName();
-                currentProcess = null;
-            } else {
-                lastExecutedProcessName = currentProcess.getName();
+            // select process with lowest priority number
+            Process selected = readyQueue.get(0);
+            for (Process p : readyQueue) {
+                if (p.priority < selected.priority) {
+                    selected = p;
+                }
             }
+
+            // add to execution order
+            if (executionOrder.isEmpty() || !executionOrder.get(executionOrder.size() - 1).equals(selected.getName())) {
+                executionOrder.add(selected.getName());
+            }
+
+            // execute for 1 time unit
+            selected.setRemainingBurstTime(selected.getRemainingBurstTime() - 1);
+            currentT++;
+            lastExecutedTime.put(selected, currentT);
+
+            // check if process completed
+            if (selected.getRemainingBurstTime() == 0) {
+                completedP++;
+                selected.setCompletionTime(currentT);
+                selected.setTurnaroundTime(selected.getCompletionTime() - selected.getArrivalTime());
+                selected.setWaitingTime(selected.getTurnaroundTime() - selected.getBurstTime());
+                System.out.println("Process " + selected.getName() + " completed at time " + currentT);
+            }
+
+            // restore original priority
+            selected.priority = originalPriority.get(selected);
         }
 
-        // compute waiting / turnaround times and print like other schedulers
+        // print results
         System.out.println("Execution Order: " + executionOrder);
         System.out.println("\nProcess\tArrival\tBurst\tCompletion\tTAT\tWT");
         System.out.println("---------------------------------------------------");
         double totalWaitingTime = 0;
         double totalTurnaroundTime = 0;
-        int numProcesses = processes.size();
 
         for (Process proc : processes) {
             proc.setTurnaroundTime(proc.getCompletionTime() - proc.getArrivalTime());
@@ -368,7 +307,6 @@ public class CPUSimulator {
         System.out.println("Average Waiting Time: " + (totalWaitingTime / numProcesses));
         System.out.println("Average Turnaround Time: " + (totalTurnaroundTime / numProcesses));
     }
-
     enum PickMode { FCFS, PRIORITY, SJF } //to switch between picking modes
 
     public void AGScheduling() {
