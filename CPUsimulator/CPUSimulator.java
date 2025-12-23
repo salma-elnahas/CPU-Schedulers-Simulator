@@ -1,6 +1,8 @@
 package CPUsimulator;
 import java.util.*;
 
+import javax.sound.midi.Track;
+
 public class CPUSimulator {
 
     List<String> executionOrder = new ArrayList<>();
@@ -199,13 +201,11 @@ public class CPUSimulator {
                 p.addedToQueue = true;
             }
         }
-}
-    private void record(List<String> executionOrder, Process p) {
-        if (executionOrder.isEmpty() ||
-            !executionOrder.get(executionOrder.size() - 1).equals(p.getName())) {
-            executionOrder.add(p.getName());
-        }
     }
+ 
+    public void priorityScheduling(List<Process> processes, int agingInterval, int contextSwitch) {
+    // clear previous state
+    this.executionOrder.clear();
 
     // priority Scheduling
     public void priorityScheduling(List<Process> processes, int agingInterval) {
@@ -320,33 +320,128 @@ public class CPUSimulator {
         double totalTurnaroundTime = 0;
         int numProcesses = processes.size();
 
-        for (Process proc : processes) {
-            proc.setTurnaroundTime(proc.getCompletionTime() - proc.getArrivalTime());
-            proc.setWaitingTime(proc.getTurnaroundTime() - proc.getBurstTime());
-            System.out.println(proc.getName() + "\t" +
-                    proc.getArrivalTime() + "\t" +
-                    proc.getBurstTime() + "\t" +
-                    proc.getCompletionTime() + "\t\t" +
-                    proc.getTurnaroundTime() + "\t" +
-                    proc.getWaitingTime());
-
-            totalWaitingTime += proc.getWaitingTime();
-            totalTurnaroundTime += proc.getTurnaroundTime();
+    printInfo(processes, finished);
+    }
+    // Helper method to check for newly arrived processes and adds them to queue
+    private void checkArrivals(List<Process> readyQueue, List<Process> pending, 
+                              Map<String, Integer> waitStartTime, int time) {
+        Iterator<Process> iter = pending.iterator();
+        while (iter.hasNext()) {
+            Process p = iter.next();
+            if (p.getArrivalTime() <= time) {
+                if (!readyQueue.contains(p)) {
+                    // Add process to queue if not there
+                    readyQueue.add(p);
+                    waitStartTime.put(p.getName(), p.getArrivalTime());
+                }
+                iter.remove();
+            }
         }
+    }
+    // Helper method to apply aging mechanism to prevent starvation
+    private void applyAging(List<Process> readyQueue, Process current, int time, 
+                           int agingInterval, Map<String, Integer> effectivePriority, 
+            Map<String, Integer> waitStartTime) {
+        if (agingInterval <= 0)
+            return;
 
-        System.out.println("---------------------------------------------------");
-        System.out.println("Average Waiting Time: " + (totalWaitingTime / numProcesses));
-        System.out.println("Average Turnaround Time: " + (totalTurnaroundTime / numProcesses));
+        for (Process p : readyQueue) {
+            if (p == current)
+                continue;
+
+            int start = waitStartTime.get(p.getName());
+            // -1 means process is executing
+            if (start == -1)
+                continue;
+            // Calculate how long process has been waiting 
+            int queueTime = time - start;
+
+            // If waited long enough, boost priority
+            if (queueTime >= agingInterval) {
+                int priorityBoost = queueTime / agingInterval;
+                int currentPrio = effectivePriority.get(p.getName());
+                int newPrio = Math.max(1, currentPrio - priorityBoost);
+                effectivePriority.put(p.getName(), newPrio);
+                waitStartTime.put(p.getName(), time);
+            }
+        }
+    }
+    
+    // Helper method to select highest process ( lower number = higher priority)
+    private Process selectHighestPriority(List<Process> readyQueue, Map<String, Integer> effectivePriority) {
+        if (readyQueue.isEmpty()) return null;
+        
+        Process highest = readyQueue.get(0);
+        for (Process p : readyQueue) {
+            int highPriority = effectivePriority.get(highest.getName());
+            int processPriority = effectivePriority.get(p.getName());
+            // Check for lower . If same , earlier arrival wins
+            if (processPriority < highPriority || (processPriority == highPriority && p.getArrivalTime() < highest.getArrivalTime())) {
+                highest = p;
+            }
+        }
+        return highest;
+    }
+    // Helper method to record processes in execution order
+    private void record(List<String> executionOrder, Process p) {
+        if (executionOrder.isEmpty() ||
+                !executionOrder.get(executionOrder.size() - 1).equals(p.getName())) {
+            executionOrder.add(p.getName());
+        }
+    }
+
+    private void printInfo(List<Process> originalProcesses, List<Process> finished) {
+        System.out.println("Execution Order: " + executionOrder);
+        System.out.println("\nProcess\tArrival\tBurst\tPriority\tCompletion\tTAT\tWT");
+        System.out.println("---------------------------------------------------------------------------");
+    
+        double totalWT = 0;
+        double totalTAT = 0;
+        int n = originalProcesses.size();
+    
+        for (Process original : originalProcesses) {
+            for (Process worked : finished) {
+                if (original.getName().equals(worked.getName())) {
+                    int compTime = worked.getCompletionTime();
+                    int arrival = original.getArrivalTime();
+                    int burst = original.getBurstTime();
+    
+                    int tat = compTime - arrival;
+                    int wt = tat - burst;
+    
+                    original.setCompletionTime(compTime);
+                    original.setTurnaroundTime(tat);
+                    original.setWaitingTime(wt);
+    
+                    System.out.println(original.getName() + "\t" +
+                            arrival + "\t" +
+                            burst + "\t" +
+                            original.getPriority() + "\t\t" +
+                            compTime + "\t\t" +
+                            tat + "\t" + wt);
+    
+                    totalWT += wt;
+                    totalTAT += tat;
+                    break;
+                }
+            }
+        }
+    
+        System.out.println("---------------------------------------------------------------------------");
+        System.out.printf("Average Waiting Time: %.2f\n", (totalWT / n));
+        System.out.printf("Average Turnaround Time: %.2f\n", (totalTAT / n));
     }
 
     enum PickMode { FCFS, PRIORITY, SJF } //to switch between picking modes
 
+    enum PickMode { FCFS, PRIORITY, SJF } //to switch between picking modes
+    // AG Scheduling
     public void AGScheduling() {
     AGScheduling(this.processes);
     }
 
     public void AGScheduling(List<Process> processes) {
-        // clear previous state
+     // clear previous state
     this.executionOrder.clear();
 
     Queue<Process> readyQueue = new LinkedList<>();
@@ -561,4 +656,5 @@ public class CPUSimulator {
     }
 
 }
+ 
  
